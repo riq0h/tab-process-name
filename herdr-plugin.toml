@@ -1,8 +1,8 @@
 id = "riq0h.tab-process-name"
 name = "Tab Process Name"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.7.0"
-description = "Label each tab '<number> <foreground process>', mirroring tmux's automatic-rename."
+description = "Label each tab with its foreground process name. Pairs with tab-blank-number to drop herdr's default numeric label."
 platforms = ["linux", "macos"]
 
 [[actions]]

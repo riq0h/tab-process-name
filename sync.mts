@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Tab Process Name: label each tab "<number> <foreground process>",
-// mirroring tmux's automatic-rename. Runs as a herdr plugin event hook / action.
+// Tab Process Name: label each tab with its foreground process name alone
+// (no number). Runs as a herdr plugin event hook / action.
 //
 // TypeScript executed directly via Node's type stripping (Node 22.18+),
 // so this source file is also the artifact — no build step.
@@ -8,10 +8,16 @@
 // A tab's process name comes from its focused pane (or first pane)'s
 // foreground process, via `pane process-info` (`foreground_processes[0].name`).
 //
-// Manual renames are respected: a tab is only relabeled when its label is
-// still the herdr default (a bare number) or a label this plugin set earlier
-// (tracked in HERDR_PLUGIN_STATE_DIR/labels.json). Set `overwrite_manual`
-// to true in HERDR_PLUGIN_CONFIG_DIR/config.json to relabel every tab.
+// This plugin is designed to pair with the separate tab-blank-number
+// plugin, which clears herdr's default numeric label to "". A tab is
+// claimable here either while it's still that bare number (if this plugin
+// runs before tab-blank-number gets to it) or once it's blank (if
+// tab-blank-number already got there first) — either order converges on
+// the same result: just the process name, no number. Manual renames are
+// otherwise respected: a tab is only relabeled while unclaimed in one of
+// those two forms, or a label this plugin set earlier (tracked in
+// HERDR_PLUGIN_STATE_DIR/labels.json). Set `overwrite_manual` to true in
+// HERDR_PLUGIN_CONFIG_DIR/config.json to relabel every tab regardless.
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -24,7 +30,6 @@ interface WorkspaceInfo {
 interface TabInfo {
   tab_id: string;
   label: string;
-  number: number;
 }
 
 interface PaneInfo {
@@ -50,7 +55,9 @@ interface Config {
 type OwnedLabels = Record<string, string>;
 
 const HERDR = process.env.HERDR_BIN_PATH || "herdr";
-const DEFAULT_LABEL = /^[0-9]+$/;
+// Unclaimed forms: herdr's own bare-number default, or blank (as left by
+// the companion tab-blank-number plugin).
+const UNCLAIMED_LABEL = /^[0-9]*$/;
 
 function call<T>(args: string[]): T {
   const res = spawnSync(HERDR, args, {
@@ -150,7 +157,8 @@ function main(): void {
 
     for (const tab of tabs) {
       const owned =
-        DEFAULT_LABEL.test(tab.label) || ownedLabels[tab.tab_id] === tab.label;
+        UNCLAIMED_LABEL.test(tab.label) ||
+        ownedLabels[tab.tab_id] === tab.label;
       if (!owned && !config.overwriteManual) {
         continue;
       }
@@ -163,7 +171,7 @@ function main(): void {
         }
         continue;
       }
-      const label = truncate(`${tab.number} ${processName}`, config.maxLength);
+      const label = truncate(processName, config.maxLength);
       if (label !== tab.label) {
         call(["tab", "rename", tab.tab_id, label]);
       }

@@ -1,9 +1,20 @@
 # tab-process-name
 
-A [herdr](https://herdr.dev/) plugin that labels each tab `<number>
-<foreground process>` — tmux's `automatic-rename` behavior for herdr.
+A [herdr](https://herdr.dev/) plugin that labels each tab with its
+foreground process name — tmux's `automatic-rename` behavior for herdr.
 
-Before: `1` · `2` · `3` — After: `1 zsh` · `2 nvim` · `3 claude`
+Before: `1` · `2` · `3` — After: `zsh` · `nvim` · `claude`
+
+There's deliberately no number in the label. herdr's own tab `number` is a
+monotonically increasing id that's never reclaimed after a tab closes, and
+indexed-jump keybindings (`switch_tab = "prefix+1..9"`) navigate by the
+tab's position in the tab bar — a separate concept herdr gives no API to
+control (no way to move/reorder a tab). Any numbering this plugin computed
+would drift from one or the other, so the label just carries the one thing
+herdr can't show on its own: what's running there. Pair this with
+[tab-blank-number](https://github.com/riq0h/tab-blank-number) to also clear
+herdr's default numeric label — the two are designed to compose regardless
+of which one reaches a given tab first.
 
 ## How it works
 
@@ -15,10 +26,11 @@ A tab's process name is resolved from its focused pane (or first pane) via
 `herdr pane process-info` — the name of the pane's foreground process
 (`zsh`, `nvim`, `claude`, ...).
 
-Manual renames are respected. A tab is only relabeled when its label is still
-the herdr default (a bare number like `1`) or a label this plugin set earlier.
-Rename a tab yourself and the plugin leaves it alone from then on; rename it
-back to a number to hand it back to the plugin.
+Manual renames are respected. A tab is only relabeled while its label is
+still unclaimed — herdr's default bare number, blank (as left by
+tab-blank-number), or a label this plugin set earlier. Rename a tab to
+anything else and the plugin leaves it alone from then on; rename it back
+to a bare number or blank it to hand it back to the plugin.
 
 Because herdr emits no event when a shell simply runs a command, a label can
 lag until the next herdr-level event (switching tabs or panes, agent status
@@ -113,7 +125,7 @@ herdr plugin log list --plugin riq0h.tab-process-name
 The logic lives in `sync.mts`. State lives in
 `HERDR_PLUGIN_STATE_DIR/labels.json` (the labels the plugin set, used to tell
 its own labels apart from yours). Deleting it is safe; the plugin re-adopts
-tabs whose labels are bare numbers.
+tabs whose labels are bare numbers or blank.
 
 ## Credit
 
